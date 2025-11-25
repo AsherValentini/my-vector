@@ -1,19 +1,25 @@
 #pragma once
 #include <type_traits>
+#include <memory>
+#include <optional>
 
 namespace asher {
 	template<typename T>
 	class vector {
+		using traits = std::allocator_traits<std::allocator<T>>;
 	public:
 		vector()
-			: capacity_(1), size_(0) {
+			: data(nullptr), capacity_(1), size_(0) {
 				std::cout << "Vector constructed" << std::endl;
 			}
 
 		~vector() {
-			delete[] data;
-			//data = nullptr;
-			std::cout << "Vector desctructed" << std::endl;
+			if(data) {
+				std::allocator<T> alloc;
+				for(int i = 0; i < size_; ++i) traits::destroy(alloc, &data[i]);
+				traits::deallocate(alloc, data, capacity_);
+			}
+
 		}
 
 		std::size_t size () const {
@@ -25,25 +31,33 @@ namespace asher {
 		}
 
 		void push_back(T item) {
-			std::cout << "[Vector] push\n";
+			std::allocator<T> alloc;
+
+			if(!data) {
+				capacity_ = 1;
+				size_ = 0;
+				data = alloc.allocate(capacity_);
+			}
+
 			if(size_ == capacity_) {
-				std::cout << "[Vector] at capacity must reallocate\n";
 				resize(capacity_*3);
 			}
-			data[size_++] = item;
+
+			traits::construct(alloc, &data[size_], std::move(item));
+			size_++;
 		}
 
 		void pop_back() {
-			// theyve said it wont be called on an empty as a constraint
+			std::allocator<T> alloc;
+			traits::destroy(alloc, &data[size_]);
 			size_--;
-			std::cout << "[Vector] pop\n";
+			if(size_ == 0)  {
+				traits::deallocate(alloc, data, capacity_);
+				data = nullptr;
+			}
 		}
 
-		void shrink_to_fit () {
-			std::cout << "[Vector] shrink to fit \n";
-			resize(size_);
-		}
-
+		void shrink_to_fit () { resize(size_); }
 
 		inline T& operator[](int idx) {
 			return data[idx];
@@ -52,20 +66,24 @@ namespace asher {
 			return data[idx];
 		}
 
-		T* dataAddr() const { return data; }
+		std::optional<T*> dataAddr() const {
+			if (data) return data;
+			return std::nullopt;
+		}
 
 	private:
-		T* data = new T[1];
+		T* data = nullptr;
 		std::size_t capacity_;
 		std::size_t size_;
 
 		void resize(std::size_t newCapacity) {
-			T* newData = new T[newCapacity];
-			std::cout << "new data address: " << newData << "\n";
+			std::allocator<T> alloc;
+			T* newData = alloc.allocate(newCapacity);
 			for(int i = 0; i < size_; ++i) {
-				newData[i] = std::move(data[i]);
+				traits::construct(alloc, &newData[i], std::move(data[i]));
+				traits::destroy(alloc, &data[i]);
 			}
-			delete[] data;
+			traits::deallocate(alloc, data, capacity_);
 			data = newData;
 			capacity_ = newCapacity;
 		}
