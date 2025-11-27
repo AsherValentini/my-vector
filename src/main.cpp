@@ -45,9 +45,10 @@ int main() {
 	printData(myVector);
     myVector.pop_back();
 	printData(myVector);
-	myVector.pop_back();
+	std::cout << "Clear  =============================================================\n";
+    myVector.clear();
 	printData(myVector);
-
     return 0;
+
 }
 

@@ -59,6 +59,18 @@ namespace asher {
 
 		void shrink_to_fit () { resize(size_); }
 
+		void clear () {
+			if(!data) return;
+			std::allocator<T> alloc;
+			for(int i = 0; i <= size_; ++i) {
+				traits::destroy(alloc, &data[i]);
+			}
+			size_ = 0;
+			traits::deallocate(alloc, data, capacity_);
+			capacity_ = 1;
+			data = nullptr;
+		}
+
 		inline T& operator[](int idx) {
 			return data[idx];
 		}
